@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cu // G-phase CSL Boundary Visualizer</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>Cu // G-phase — CSL / Near-Coincidence Boundary</h1>
+    <p class="sub">Coincidence Site Lattice 경계를 2D / 3D로 동적 시각화 · 격자상수·방위관계(OR)를 실시간 조절</p>
+  </header>
+
+  <main>
+    <aside id="controls">
+      <section>
+        <h2>격자 파라미터</h2>
+        <label>Cu 격자 <span class="hint">FCC, Å</span>
+          <div class="row">
+            <select id="latCu"><option>FCC</option><option>BCC</option><option>SC</option></select>
+            <input id="aCu" type="number" step="0.001" />
+          </div>
+        </label>
+        <label>G-phase 격자 <span class="hint">Å</span>
+          <div class="row">
+            <select id="latG"><option>FCC</option><option>BCC</option><option>SC</option></select>
+            <input id="aG" type="number" step="0.001" />
+          </div>
+        </label>
+      </section>
+
+      <section>
+        <h2>방위관계 (OR)</h2>
+        <label>프리셋
+          <select id="orPreset">
+            <option>cube-on-cube</option>
+            <option>twist-θ (001)</option>
+            <option>tilt-θ (010)</option>
+            <option>Σ5 36.87° [001]</option>
+            <option>Σ3 60° [111]</option>
+            <option>Σ7 38.21° [111]</option>
+            <option>Kurdjumov–Sachs</option>
+          </select>
+        </label>
+        <label>회전각 θ <span id="theta-val" class="hint">0°</span>
+          <input id="theta" type="range" min="0" max="90" step="0.1" value="0" />
+        </label>
+        <label>계면 법선 (hkl)
+          <input id="hkl" type="text" value="0 0 1" />
+        </label>
+      </section>
+
+      <section>
+        <h2>표시 설정</h2>
+        <label>일치 허용오차 <span id="tol-val" class="hint">10%</span>
+          <input id="tol" type="range" min="0.01" max="0.4" step="0.01" value="0.10" />
+        </label>
+        <label>표시 영역 <span id="region-val" class="hint">16 Å</span>
+          <input id="region" type="range" min="8" max="30" step="1" value="16" />
+        </label>
+        <div class="toggles">
+          <label class="chk"><input id="tg-cu" type="checkbox" checked /> Cu</label>
+          <label class="chk"><input id="tg-g" type="checkbox" checked /> G-phase</label>
+          <label class="chk"><input id="tg-coin" type="checkbox" checked /> 일치점</label>
+          <label class="chk"><input id="tg-plane" type="checkbox" checked /> 계면</label>
+        </div>
+        <button id="reset">기본값으로 리셋</button>
+      </section>
+
+      <section id="readout">
+        <h2>정량 지표</h2>
+        <dl>
+          <dt>a<sub>G</sub> / a<sub>Cu</sub></dt><dd id="r-ratio">–</dd>
+          <dt>정합 배수 n</dt><dd id="r-n">–</dd>
+          <dt>선형 미스핏 δ</dt><dd id="r-misfit">–</dd>
+          <dt>무아레/근사 CSL 주기</dt><dd id="r-moire">–</dd>
+          <dt>허용오차 (절대)</dt><dd id="r-tol">–</dd>
+          <dt>Cu / G / 일치 원자수</dt>
+          <dd><span id="n-cu">–</span> / <span id="n-g">–</span> / <span id="n-coin">–</span></dd>
+        </dl>
+        <details>
+          <summary>참고: 동일격자 CSL Σ 급수 (축=계면 법선)</summary>
+          <table><thead><tr><th>Σ</th><th>θ</th></tr></thead>
+            <tbody id="csl-table"></tbody></table>
+        </details>
+      </section>
+    </aside>
+
+    <div id="stage">
+      <div class="tabs">
+        <button class="tab active" data-target="panel3d">3D</button>
+        <button class="tab" data-target="panel2d">2D 계면 격자</button>
+      </div>
+      <div id="panel3d" class="panel active"><div id="view3d"></div></div>
+      <div id="panel2d" class="panel"><canvas id="cv2d"></canvas></div>
+      <div class="legend">
+        <span><i class="d cu"></i>Cu</span>
+        <span><i class="d g"></i>G-phase</span>
+        <span><i class="d co"></i>일치 사이트</span>
+        <span class="tip">3D: 드래그 회전 · 휠 확대 &nbsp;|&nbsp; 2D: 드래그 이동 · 휠 확대</span>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
