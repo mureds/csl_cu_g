@@ -3,6 +3,8 @@
 Cu(FCC) 기지와 G-phase 석출물 사이의 **CSL(Coincidence Site Lattice) / 근사 일치(near-coincidence) 경계**를
 브라우저에서 2D·3D로 **동적** 시각화하는 정적 웹앱입니다. 외부 빌드 도구 없이 순수 ES 모듈 + Three.js(CDN)로 동작합니다.
 
+> 📐 **수학·계산 방법과 개발 로그**는 [`MATH_AND_LOG.md`](MATH_AND_LOG.md) 참고 (계면 법선·방위관계 OR·CSL 유도 포함).
+
 ## 기능
 
 - **3D 뷰** — 두 상의 원자 격자를 방위관계(OR)에 따라 배치하고, 계면(interface plane)과 일치 사이트를 강조. 드래그 회전 / 휠 확대.
