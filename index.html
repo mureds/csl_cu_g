@@ -43,16 +43,14 @@
         <label>프리셋
           <select id="orPreset">
             <option>cube-on-cube</option>
-            <option>twist-θ (001)</option>
-            <option>tilt-θ (010)</option>
             <option>Σ5 36.87° [001]</option>
             <option>Σ3 60° [111]</option>
             <option>Σ7 38.21° [111]</option>
             <option>Kurdjumov–Sachs</option>
           </select>
         </label>
-        <label>회전각 θ <span id="theta-val" class="hint">0°</span>
-          <input id="theta" type="range" min="0" max="90" step="0.1" value="0" />
+        <label>회전각 θ <span class="hint">계면 법선축 twist</span><span id="theta-val" class="hint">0°</span>
+          <input id="theta" type="range" min="0" max="180" step="0.1" value="0" />
         </label>
         <label>계면 법선 (hkl)
           <input id="hkl" type="text" value="0 0 1" />

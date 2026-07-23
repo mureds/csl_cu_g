@@ -18,15 +18,15 @@ const DEFAULTS = {
   inPlane: [1,0,0],
 };
 
-// Orientation-relationship presets. Each returns rotation matrix for phase B.
+// Orientation-relationship presets: a fixed base rotation for phase B.
+// The θ slider adds a twist about the interface normal ON TOP of this, so θ
+// always rotates the lattice regardless of which preset is selected.
 const OR_PRESETS = {
-  'cube-on-cube':    () => IDENTITY,
-  'twist-θ (001)':   (t) => rotationMatrix([0,0,1], t),
-  'tilt-θ (010)':    (t) => rotationMatrix([0,1,0], t),
-  'Σ5 36.87° [001]': () => rotationMatrix([0,0,1], 36.8699),
-  'Σ3 60° [111]':    () => rotationMatrix([1,1,1], 60),
-  'Σ7 38.21° [111]': () => rotationMatrix([1,1,1], 38.2132),
-  'Kurdjumov–Sachs': () => rotationMatrix([1,1,1], 5.26), // approx residual twist about [111]
+  'cube-on-cube':    IDENTITY,
+  'Σ5 36.87° [001]': rotationMatrix([0,0,1], 36.8699),
+  'Σ3 60° [111]':    rotationMatrix([1,1,1], 60),
+  'Σ7 38.21° [111]': rotationMatrix([1,1,1], 38.2132),
+  'Kurdjumov–Sachs': rotationMatrix([1,1,1], 5.26),
 };
 
 const view2d = new View2D($('cv2d'));
@@ -45,8 +45,11 @@ function readState() {
   const aG  = parseFloat($('aG').value)  || DEFAULTS.aG;
   const theta = parseFloat($('theta').value) || 0;
   const preset = $('orPreset').value;
-  const rotB = OR_PRESETS[preset] ? OR_PRESETS[preset](theta) : IDENTITY;
   const hkl = $('hkl').value.split(/[\s,]+/).map(Number);
+  const normal = hkl.length === 3 ? hkl : DEFAULTS.hkl;
+  // θ = twist about the interface normal, applied on top of the preset OR.
+  const presetRot = OR_PRESETS[preset] || IDENTITY;
+  const rotB = mulM(rotationMatrix(normal, theta), presetRot);
   const tolFrac = parseFloat($('tol').value);
   const region = parseFloat($('region').value);
   return {
