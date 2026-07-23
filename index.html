@@ -17,7 +17,7 @@
 <body>
   <header>
     <h1>Cu // G-phase (Ni₁₆Ti₆Si₇) — CSL / Near-Coincidence Boundary</h1>
-    <p class="sub">Coincidence Site Lattice 경계를 2D / 3D로 동적 시각화 · Cu(FCC, 3.615 Å) ∥ G-phase(FCC, 11.2 Å), cube-on-cube · 격자상수·방위관계(OR) 실시간 조절</p>
+    <p class="sub">Coincidence Site Lattice 경계를 2D / 3D로 동적 시각화 · Cu(3.615 Å) ∥ G-phase(11.2 Å), cube-on-cube · 표시 격자: Simple Cubic(기본, 시각화용) · 격자상수·방위관계(OR)·격자유형 실시간 조절</p>
   </header>
 
   <main>
@@ -72,6 +72,7 @@
           <label class="chk"><input id="tg-g" type="checkbox" checked /> G-phase</label>
           <label class="chk"><input id="tg-coin" type="checkbox" checked /> 일치점</label>
           <label class="chk"><input id="tg-plane" type="checkbox" checked /> 계면</label>
+          <label class="chk" title="위: G-phase / 아래: Cu matrix"><input id="tg-split" type="checkbox" checked /> 계면 분할</label>
         </div>
         <button id="reset">기본값으로 리셋</button>
       </section>

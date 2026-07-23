@@ -8,10 +8,10 @@ const $ = (id) => document.getElementById(id);
 // ---- Default material parameters (EDIT THESE with your exact values) --------
 // G-phase: Ni16Ti6Si7 (complex FCC), a = 11.2 Å, cube-on-cube with Cu.
 const DEFAULTS = {
-  aCu: 3.615,        // Cu FCC lattice parameter (Å)
-  aG:  11.2,         // G-phase (Ni16Ti6Si7) FCC lattice parameter (Å)
-  latCu: 'FCC',
-  latG:  'FCC',
+  aCu: 3.615,        // Cu lattice parameter (Å)
+  aG:  11.2,         // G-phase (Ni16Ti6Si7) lattice parameter (Å)
+  latCu: 'SC',       // display as Simple Cubic for clarity (physically FCC)
+  latG:  'SC',
   tolFrac: 0.10,     // coincidence tolerance as fraction of aCu
   region: 16,        // half-extent of the shown block (Å)
   hkl: [0,0,1],      // interface plane normal
@@ -88,12 +88,13 @@ $('theta').addEventListener('input', () => { $('theta-val').textContent = $('the
 $('tol').addEventListener('input',   () => { $('tol-val').textContent = (parseFloat($('tol').value)*100).toFixed(0) + '%'; });
 $('region').addEventListener('input',() => { $('region-val').textContent = $('region').value + ' Å'; });
 
-for (const key of ['cu','g','coin','plane']) {
+for (const key of ['cu','g','coin','plane','split']) {
   $('tg-' + key).addEventListener('change', (e) => view3d.toggle(key, e.target.checked));
 }
 
 $('reset').addEventListener('click', () => {
   $('aCu').value = DEFAULTS.aCu; $('aG').value = DEFAULTS.aG;
+  $('latCu').value = DEFAULTS.latCu; $('latG').value = DEFAULTS.latG;
   $('theta').value = 0; $('theta-val').textContent = '0°';
   $('orPreset').value = 'cube-on-cube';
   $('hkl').value = '0 0 1';
@@ -115,6 +116,7 @@ for (const btn of document.querySelectorAll('.tab')) {
 
 // init
 $('aCu').value = DEFAULTS.aCu; $('aG').value = DEFAULTS.aG;
+$('latCu').value = DEFAULTS.latCu; $('latG').value = DEFAULTS.latG;
 $('region').value = DEFAULTS.region; $('tol').value = DEFAULTS.tolFrac;
 refresh();
 // size after first layout pass (getBoundingClientRect is 0 before paint)
