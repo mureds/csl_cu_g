@@ -52,16 +52,19 @@ export class View2D {
 
     // Twist of phase B about the interface normal, expressed in crystal frame.
     // s.rotB is already the 3x3 OR rotation for phase B.
-    const ptsA = generateLattice({ a: s.aCu, motif: s.motifCu, rot: s.rotA, R });
-    const ptsB = generateLattice({ a: s.aG,  motif: s.motifG,  rot: s.rotB, R });
+    // Keep only atoms within the thin interface slab BEFORE the (expensive)
+    // coincidence search — the 2D net is a plane, so at large display regions
+    // this drops the working set from millions to a few thousand points.
+    const n = F[2]; // interface-plane normal (frame z-row)
+    const inSlab = (p) => Math.abs(n[0]*p[0] + n[1]*p[1] + n[2]*p[2]) <= this.slabT;
+    const ptsA = generateLattice({ a: s.aCu, motif: s.motifCu, rot: s.rotA, R }).filter(inSlab);
+    const ptsB = generateLattice({ a: s.aG,  motif: s.motifG,  rot: s.rotB, R }).filter(inSlab);
 
     this.coin = findCoincidences(ptsA, ptsB, s.tol);
 
-    // keep only atoms within the interface slab, then project to (x,y)
-    const slab = (p) => Math.abs(toFrame(p)[2]) <= this.slabT;
-    this.A = ptsA.filter(slab).map(toFrame);
-    this.B = ptsB.filter(slab).map(toFrame);
-    this.C = this.coin.filter(c => slab(c.a)).map(c => toFrame(c.b));
+    this.A = ptsA.map(toFrame);
+    this.B = ptsB.map(toFrame);
+    this.C = this.coin.map((c) => toFrame(c.b));
     this.render();
   }
 

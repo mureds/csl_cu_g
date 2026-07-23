@@ -99,8 +99,10 @@ export function rotationFromOR(planeCu, dirCu, planeG, dirG) {
 // opts: { a, motif, rot (3x3 or null), origin, R (Angstrom half-extent) }
 export function generateLattice({ a, motif, rot = null, origin = [0,0,0], R }) {
   const pts = [];
-  // In rotated frame a corner can reach sqrt(3)*R, so pad the index range.
-  const n = Math.ceil((R * 1.75) / a) + 1;
+  // A rotated block can reach sqrt(3)*R at a corner, so pad the index range;
+  // an unrotated (axis-aligned) block only needs R/a, which is far cheaper for
+  // the dense matrix at large display regions.
+  const n = Math.ceil((R * (rot ? 1.75 : 1.02)) / a) + 1;
   for (let i = -n; i <= n; i++)
     for (let j = -n; j <= n; j++)
       for (let k = -n; k <= n; k++)

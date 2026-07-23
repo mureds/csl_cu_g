@@ -114,7 +114,7 @@ button#reset:hover { border-color: var(--accent); }
 </head>
 <body>
   <header>
-    <h1>Cu // G-phase (Ni₁₆Ti₆Si₇) — CSL / Near-Coincidence Boundary</h1>
+    <h1>Cu // G-phase (Mn₁₆Ni₆Si₇) — CSL / Near-Coincidence Boundary</h1>
     <p class="sub">Coincidence Site Lattice 경계를 2D / 3D로 동적 시각화 · Cu(3.615 Å) ∥ G-phase(11.2 Å), cube-on-cube · 표시 격자: Simple Cubic(기본, 시각화용) · 격자상수·방위관계(OR)·격자유형 실시간 조절</p>
   </header>
 
@@ -184,7 +184,7 @@ button#reset:hover { border-color: var(--accent); }
           <input id="tol" type="range" min="0.01" max="0.4" step="0.01" value="0.10" />
         </label>
         <label>표시 영역 <span id="region-val" class="hint">16 Å</span>
-          <input id="region" type="range" min="8" max="30" step="1" value="16" />
+          <input id="region" type="range" min="8" max="50" step="1" value="16" />
         </label>
         <div class="toggles">
           <label class="chk"><input id="tg-cu" type="checkbox" checked /> Cu</label>
@@ -337,8 +337,10 @@ function rotationFromOR(planeCu, dirCu, planeG, dirG) {
 // opts: { a, motif, rot (3x3 or null), origin, R (Angstrom half-extent) }
 function generateLattice({ a, motif, rot = null, origin = [0,0,0], R }) {
   const pts = [];
-  // In rotated frame a corner can reach sqrt(3)*R, so pad the index range.
-  const n = Math.ceil((R * 1.75) / a) + 1;
+  // A rotated block can reach sqrt(3)*R at a corner, so pad the index range;
+  // an unrotated (axis-aligned) block only needs R/a, which is far cheaper for
+  // the dense matrix at large display regions.
+  const n = Math.ceil((R * (rot ? 1.75 : 1.02)) / a) + 1;
   for (let i = -n; i <= n; i++)
     for (let j = -n; j <= n; j++)
       for (let k = -n; k <= n; k++)
@@ -482,16 +484,19 @@ class View2D {
 
     // Twist of phase B about the interface normal, expressed in crystal frame.
     // s.rotB is already the 3x3 OR rotation for phase B.
-    const ptsA = generateLattice({ a: s.aCu, motif: s.motifCu, rot: s.rotA, R });
-    const ptsB = generateLattice({ a: s.aG,  motif: s.motifG,  rot: s.rotB, R });
+    // Keep only atoms within the thin interface slab BEFORE the (expensive)
+    // coincidence search — the 2D net is a plane, so at large display regions
+    // this drops the working set from millions to a few thousand points.
+    const n = F[2]; // interface-plane normal (frame z-row)
+    const inSlab = (p) => Math.abs(n[0]*p[0] + n[1]*p[1] + n[2]*p[2]) <= this.slabT;
+    const ptsA = generateLattice({ a: s.aCu, motif: s.motifCu, rot: s.rotA, R }).filter(inSlab);
+    const ptsB = generateLattice({ a: s.aG,  motif: s.motifG,  rot: s.rotB, R }).filter(inSlab);
 
     this.coin = findCoincidences(ptsA, ptsB, s.tol);
 
-    // keep only atoms within the interface slab, then project to (x,y)
-    const slab = (p) => Math.abs(toFrame(p)[2]) <= this.slabT;
-    this.A = ptsA.filter(slab).map(toFrame);
-    this.B = ptsB.filter(slab).map(toFrame);
-    this.C = this.coin.filter(c => slab(c.a)).map(c => toFrame(c.b));
+    this.A = ptsA.map(toFrame);
+    this.B = ptsB.map(toFrame);
+    this.C = this.coin.map((c) => toFrame(c.b));
     this.render();
   }
 
@@ -584,8 +589,8 @@ class View3D {
     this.renderFrame();
   }
 
-  _instanced(pts, radius, color) {
-    const geo = new THREE.SphereGeometry(radius, 14, 12);
+  _instanced(pts, radius, color, seg = 14) {
+    const geo = new THREE.SphereGeometry(radius, seg, Math.max(3, Math.round(seg * 0.85)));
     const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0.1 });
     const mesh = new THREE.InstancedMesh(geo, mat, pts.length);
     const m = new THREE.Matrix4();
@@ -627,10 +632,15 @@ class View3D {
 
     this.counts = { cu: ptsA.length, g: ptsB.length, coin: coin.length };
 
-    if (this.show.cu) this.group.add(this._instanced(ptsA, 0.42, 0xe88a3a));
-    if (this.show.g)  this.group.add(this._instanced(ptsB, 0.34, 0x5aa0ff));
+    // Adaptive sphere detail: drop polygon count as the atom total grows so
+    // large display regions (up to 200 Å) stay responsive.
+    const total = ptsA.length + ptsB.length;
+    const seg = total > 200000 ? 5 : total > 60000 ? 7 : total > 20000 ? 10 : 14;
+
+    if (this.show.cu) this.group.add(this._instanced(ptsA, 0.42, 0xe88a3a, seg));
+    if (this.show.g)  this.group.add(this._instanced(ptsB, 0.34, 0x5aa0ff, seg));
     if (this.show.coin && coin.length)
-      this.group.add(this._instanced(coin.map(c => c.b), 0.62, 0x50e68c));
+      this.group.add(this._instanced(coin.map(c => c.b), 0.62, 0x50e68c, 14));
 
     // interface plane (through origin, normal = hkl)
     if (this.show.plane) {
@@ -675,10 +685,10 @@ function parseVec(id, def) {
 }
 
 // ---- Default material parameters (EDIT THESE with your exact values) --------
-// G-phase: Ni16Ti6Si7 (complex FCC), a = 11.2 Å, cube-on-cube with Cu.
+// G-phase: Mn16Ni6Si7 (complex FCC), a = 11.2 Å, cube-on-cube with Cu.
 const DEFAULTS = {
   aCu: 3.615,        // Cu lattice parameter (Å)
-  aG:  11.2,         // G-phase (Ni16Ti6Si7) lattice parameter (Å)
+  aG:  11.2,         // G-phase (Mn16Ni6Si7) lattice parameter (Å)
   latCu: 'SC',       // display as Simple Cubic for clarity (physically FCC)
   latG:  'SC',
   tolFrac: 0.10,     // coincidence tolerance as fraction of aCu
@@ -733,7 +743,7 @@ function readState() {
   return {
     aCu, aG,
     motifCu: MOTIFS[$('latCu').value], motifG: MOTIFS[$('latG').value],
-    rotA: IDENTITY, rotB,
+    rotA: null, rotB,   // Cu is never rotated → null enables the fast path
     hkl: hkl.length === 3 ? hkl : DEFAULTS.hkl,
     inPlane: DEFAULTS.inPlane,
     tol: tolFrac * aCu,
@@ -762,7 +772,16 @@ function refresh() {
 }
 
 // ---- wire controls ----
-function bind(id, ev = 'input') { $(id).addEventListener(ev, refresh); }
+// Coalesce rapid input events (e.g. dragging the region slider to 200 Å) into
+// at most one recompute per animation frame so the UI never piles up work.
+let refreshTimer = null;
+function scheduleRefresh() {
+  if (refreshTimer) return;                 // setTimeout (not rAF) so it also
+  refreshTimer = setTimeout(() => {         // fires when the tab is backgrounded
+    refreshTimer = null; refresh();
+  }, 30);
+}
+function bind(id, ev = 'input') { $(id).addEventListener(ev, scheduleRefresh); }
 ['aCu','aG','theta','hkl','tol','region','latCu','latG','orPreset',
  'orMode','cuPlane','gPlane','cuDir','gDir'].forEach(id => bind(id));
 

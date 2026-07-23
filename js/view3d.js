@@ -48,8 +48,8 @@ export class View3D {
     this.renderFrame();
   }
 
-  _instanced(pts, radius, color) {
-    const geo = new THREE.SphereGeometry(radius, 14, 12);
+  _instanced(pts, radius, color, seg = 14) {
+    const geo = new THREE.SphereGeometry(radius, seg, Math.max(3, Math.round(seg * 0.85)));
     const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0.1 });
     const mesh = new THREE.InstancedMesh(geo, mat, pts.length);
     const m = new THREE.Matrix4();
@@ -91,10 +91,15 @@ export class View3D {
 
     this.counts = { cu: ptsA.length, g: ptsB.length, coin: coin.length };
 
-    if (this.show.cu) this.group.add(this._instanced(ptsA, 0.42, 0xe88a3a));
-    if (this.show.g)  this.group.add(this._instanced(ptsB, 0.34, 0x5aa0ff));
+    // Adaptive sphere detail: drop polygon count as the atom total grows so
+    // large display regions (up to 200 Å) stay responsive.
+    const total = ptsA.length + ptsB.length;
+    const seg = total > 200000 ? 5 : total > 60000 ? 7 : total > 20000 ? 10 : 14;
+
+    if (this.show.cu) this.group.add(this._instanced(ptsA, 0.42, 0xe88a3a, seg));
+    if (this.show.g)  this.group.add(this._instanced(ptsB, 0.34, 0x5aa0ff, seg));
     if (this.show.coin && coin.length)
-      this.group.add(this._instanced(coin.map(c => c.b), 0.62, 0x50e68c));
+      this.group.add(this._instanced(coin.map(c => c.b), 0.62, 0x50e68c, 14));
 
     // interface plane (through origin, normal = hkl)
     if (this.show.plane) {

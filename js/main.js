@@ -12,10 +12,10 @@ function parseVec(id, def) {
 }
 
 // ---- Default material parameters (EDIT THESE with your exact values) --------
-// G-phase: Ni16Ti6Si7 (complex FCC), a = 11.2 Å, cube-on-cube with Cu.
+// G-phase: Mn16Ni6Si7 (complex FCC), a = 11.2 Å, cube-on-cube with Cu.
 const DEFAULTS = {
   aCu: 3.615,        // Cu lattice parameter (Å)
-  aG:  11.2,         // G-phase (Ni16Ti6Si7) lattice parameter (Å)
+  aG:  11.2,         // G-phase (Mn16Ni6Si7) lattice parameter (Å)
   latCu: 'SC',       // display as Simple Cubic for clarity (physically FCC)
   latG:  'SC',
   tolFrac: 0.10,     // coincidence tolerance as fraction of aCu
@@ -70,7 +70,7 @@ function readState() {
   return {
     aCu, aG,
     motifCu: MOTIFS[$('latCu').value], motifG: MOTIFS[$('latG').value],
-    rotA: IDENTITY, rotB,
+    rotA: null, rotB,   // Cu is never rotated → null enables the fast path
     hkl: hkl.length === 3 ? hkl : DEFAULTS.hkl,
     inPlane: DEFAULTS.inPlane,
     tol: tolFrac * aCu,
@@ -99,7 +99,16 @@ function refresh() {
 }
 
 // ---- wire controls ----
-function bind(id, ev = 'input') { $(id).addEventListener(ev, refresh); }
+// Coalesce rapid input events (e.g. dragging the region slider to 200 Å) into
+// at most one recompute per animation frame so the UI never piles up work.
+let refreshTimer = null;
+function scheduleRefresh() {
+  if (refreshTimer) return;                 // setTimeout (not rAF) so it also
+  refreshTimer = setTimeout(() => {         // fires when the tab is backgrounded
+    refreshTimer = null; refresh();
+  }, 30);
+}
+function bind(id, ev = 'input') { $(id).addEventListener(ev, scheduleRefresh); }
 ['aCu','aG','theta','hkl','tol','region','latCu','latG','orPreset',
  'orMode','cuPlane','gPlane','cuDir','gDir'].forEach(id => bind(id));
 

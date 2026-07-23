@@ -17,7 +17,7 @@ Cu(FCC) 기지와 G-phase 석출물 사이의 **CSL(Coincidence Site Lattice) / 
 ```js
 const DEFAULTS = {
   aCu: 3.615,     // Cu FCC 격자상수 (Å)
-  aG:  11.2,      // G-phase (Ni16Ti6Si7) FCC 격자상수 (Å)
+  aG:  11.2,      // G-phase (Mn16Ni6Si7) FCC 격자상수 (Å)
   ...
 };
 ```
