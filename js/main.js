@@ -6,9 +6,10 @@ import { View3D } from './view3d.js';
 const $ = (id) => document.getElementById(id);
 
 // ---- Default material parameters (EDIT THESE with your exact values) --------
+// G-phase: Ni16Ti6Si7 (complex FCC), a = 11.2 Å, cube-on-cube with Cu.
 const DEFAULTS = {
   aCu: 3.615,        // Cu FCC lattice parameter (Å)
-  aG:  10.845,       // G-phase lattice parameter (Å) — placeholder ≈ 3 x aCu
+  aG:  11.2,         // G-phase (Ni16Ti6Si7) FCC lattice parameter (Å)
   latCu: 'FCC',
   latG:  'FCC',
   tolFrac: 0.10,     // coincidence tolerance as fraction of aCu
