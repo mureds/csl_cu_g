@@ -40,15 +40,38 @@
 
       <section>
         <h2>방위관계 (OR)</h2>
-        <label>프리셋
-          <select id="orPreset">
-            <option>cube-on-cube</option>
-            <option>Σ5 36.87° [001]</option>
-            <option>Σ3 60° [111]</option>
-            <option>Σ7 38.21° [111]</option>
-            <option>Kurdjumov–Sachs</option>
+        <label>지정 방식
+          <select id="orMode">
+            <option value="preset">프리셋</option>
+            <option value="index">지수 입력 (Cu ∥ G)</option>
           </select>
         </label>
+        <div id="or-preset-group">
+          <label>프리셋
+            <select id="orPreset">
+              <option>cube-on-cube</option>
+              <option>Σ5 36.87° [001]</option>
+              <option>Σ3 60° [111]</option>
+              <option>Σ7 38.21° [111]</option>
+              <option>Kurdjumov–Sachs</option>
+            </select>
+          </label>
+        </div>
+        <div id="or-index-group" style="display:none">
+          <label>Cu 면 (h k l) ∥ G 면 (h′ k′ l′)
+            <div class="row">
+              <input id="cuPlane" type="text" value="1 1 1" title="Cu (hkl)" />
+              <input id="gPlane" type="text" value="1 1 1" title="G (h'k'l')" />
+            </div>
+          </label>
+          <label>Cu 방향 [u v w] ∥ G 방향 [u′ v′ w′]
+            <div class="row">
+              <input id="cuDir" type="text" value="1 -1 0" title="Cu [uvw]" />
+              <input id="gDir" type="text" value="1 -1 0" title="G [u'v'w']" />
+            </div>
+          </label>
+          <p class="hint" style="float:none;margin:2px 0 0">공백/쉼표로 구분. 음수는 -1 처럼 입력.</p>
+        </div>
         <label>회전각 θ <span class="hint">계면 법선축 twist</span><span id="theta-val" class="hint">0°</span>
           <input id="theta" type="range" min="0" max="180" step="0.1" value="0" />
         </label>

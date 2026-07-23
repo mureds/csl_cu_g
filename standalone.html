@@ -138,15 +138,38 @@ button#reset:hover { border-color: var(--accent); }
 
       <section>
         <h2>방위관계 (OR)</h2>
-        <label>프리셋
-          <select id="orPreset">
-            <option>cube-on-cube</option>
-            <option>Σ5 36.87° [001]</option>
-            <option>Σ3 60° [111]</option>
-            <option>Σ7 38.21° [111]</option>
-            <option>Kurdjumov–Sachs</option>
+        <label>지정 방식
+          <select id="orMode">
+            <option value="preset">프리셋</option>
+            <option value="index">지수 입력 (Cu ∥ G)</option>
           </select>
         </label>
+        <div id="or-preset-group">
+          <label>프리셋
+            <select id="orPreset">
+              <option>cube-on-cube</option>
+              <option>Σ5 36.87° [001]</option>
+              <option>Σ3 60° [111]</option>
+              <option>Σ7 38.21° [111]</option>
+              <option>Kurdjumov–Sachs</option>
+            </select>
+          </label>
+        </div>
+        <div id="or-index-group" style="display:none">
+          <label>Cu 면 (h k l) ∥ G 면 (h′ k′ l′)
+            <div class="row">
+              <input id="cuPlane" type="text" value="1 1 1" title="Cu (hkl)" />
+              <input id="gPlane" type="text" value="1 1 1" title="G (h'k'l')" />
+            </div>
+          </label>
+          <label>Cu 방향 [u v w] ∥ G 방향 [u′ v′ w′]
+            <div class="row">
+              <input id="cuDir" type="text" value="1 -1 0" title="Cu [uvw]" />
+              <input id="gDir" type="text" value="1 -1 0" title="G [u'v'w']" />
+            </div>
+          </label>
+          <p class="hint" style="float:none;margin:2px 0 0">공백/쉼표로 구분. 음수는 -1 처럼 입력.</p>
+        </div>
         <label>회전각 θ <span class="hint">계면 법선축 twist</span><span id="theta-val" class="hint">0°</span>
           <input id="theta" type="range" min="0" max="180" step="0.1" value="0" />
         </label>
@@ -278,6 +301,36 @@ function frameForPlane(hkl, inPlaneDir) {
   const y = V.cross(n, x);
   // rows map crystal coords -> frame coords (x,y,z=normal)
   return [x, y, n];
+}
+
+// --- Orientation relationship from parallel plane + direction pairs ----------
+// Realizes  (planeCu) ∥ (planeG)  and  [dirCu] ∥ [dirG]  for cubic crystals,
+// where a plane's normal is parallel to its Miller-index vector. Returns the
+// rotation R that maps phase-G crystal vectors into the lab (Cu) frame, so that
+// R·(planeG normal) ∥ planeCu normal and R·[dirG] ∥ [dirCu].
+function rotationFromOR(planeCu, dirCu, planeG, dirG) {
+  const frame = (n0, d0) => {
+    const n = V.norm(n0);
+    let e1 = V.sub(d0, V.scale(n, V.dot(d0, n)));   // in-plane part of the direction
+    if (V.len(e1) < 1e-8) {                          // direction ∥ normal → pick any in-plane axis
+      const seed = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+      e1 = V.sub(seed, V.scale(n, V.dot(seed, n)));
+    }
+    e1 = V.norm(e1);
+    const e2 = V.cross(n, e1);
+    return [e1, e2, n];                              // three orthonormal basis vectors
+  };
+  const c = frame(planeCu, dirCu);                  // Cu frame (basis vectors, in lab)
+  const g = frame(planeG, dirG);                    // G frame (basis vectors, in G coords)
+  // R = MCu · MGᵀ with M = [e1 e2 n] as columns → R maps each G basis vec to the Cu one.
+  const R = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++) {
+      let s = 0;                                    // R = MCu · MGᵀ  (columns = basis vecs)
+      for (let k = 0; k < 3; k++) s += c[k][i] * g[k][j];
+      R[i][j] = s;
+    }
+  return R;
 }
 
 // --- Generate atom positions of one phase within a cubic block of half-size R ---
@@ -615,6 +668,12 @@ class View3D {
 
 const $ = (id) => document.getElementById(id);
 
+// Parse a "h k l" / "h,k,l" text field into a 3-vector (falls back to `def`).
+function parseVec(id, def) {
+  const v = $(id).value.split(/[\s,]+/).map(Number).filter((x) => !Number.isNaN(x));
+  return v.length === 3 ? v : def;
+}
+
 // ---- Default material parameters (EDIT THESE with your exact values) --------
 // G-phase: Ni16Ti6Si7 (complex FCC), a = 11.2 Å, cube-on-cube with Cu.
 const DEFAULTS = {
@@ -654,12 +713,21 @@ function readState() {
   const aCu = parseFloat($('aCu').value) || DEFAULTS.aCu;
   const aG  = parseFloat($('aG').value)  || DEFAULTS.aG;
   const theta = parseFloat($('theta').value) || 0;
-  const preset = $('orPreset').value;
   const hkl = $('hkl').value.split(/[\s,]+/).map(Number);
   const normal = hkl.length === 3 ? hkl : DEFAULTS.hkl;
-  // θ = twist about the interface normal, applied on top of the preset OR.
-  const presetRot = OR_PRESETS[preset] || IDENTITY;
-  const rotB = mulM(rotationMatrix(normal, theta), presetRot);
+  // Base OR: either a named preset, or computed from parallel plane/direction
+  // index pairs  (hkl)_Cu ∥ (h'k'l')_G  and  [uvw]_Cu ∥ [u'v'w']_G.
+  let baseRot;
+  if ($('orMode').value === 'index') {
+    baseRot = rotationFromOR(
+      parseVec('cuPlane', [1, 1, 1]), parseVec('cuDir', [1, -1, 0]),
+      parseVec('gPlane',  [1, 1, 1]), parseVec('gDir',  [1, -1, 0]),
+    );
+  } else {
+    baseRot = OR_PRESETS[$('orPreset').value] || IDENTITY;
+  }
+  // θ = extra twist about the interface normal, applied on top of the base OR.
+  const rotB = mulM(rotationMatrix(normal, theta), baseRot);
   const tolFrac = parseFloat($('tol').value);
   const region = parseFloat($('region').value);
   return {
@@ -695,7 +763,17 @@ function refresh() {
 
 // ---- wire controls ----
 function bind(id, ev = 'input') { $(id).addEventListener(ev, refresh); }
-['aCu','aG','theta','hkl','tol','region','latCu','latG','orPreset'].forEach(id => bind(id));
+['aCu','aG','theta','hkl','tol','region','latCu','latG','orPreset',
+ 'orMode','cuPlane','gPlane','cuDir','gDir'].forEach(id => bind(id));
+
+// Show preset vs. index inputs depending on the chosen OR mode.
+function syncOrMode() {
+  const idx = $('orMode').value === 'index';
+  $('or-index-group').style.display = idx ? '' : 'none';
+  $('or-preset-group').style.display = idx ? 'none' : '';
+}
+$('orMode').addEventListener('change', syncOrMode);
+syncOrMode();
 
 $('theta').addEventListener('input', () => { $('theta-val').textContent = $('theta').value + '°'; });
 $('tol').addEventListener('input',   () => { $('tol-val').textContent = (parseFloat($('tol').value)*100).toFixed(0) + '%'; });
@@ -709,7 +787,10 @@ $('reset').addEventListener('click', () => {
   $('aCu').value = DEFAULTS.aCu; $('aG').value = DEFAULTS.aG;
   $('latCu').value = DEFAULTS.latCu; $('latG').value = DEFAULTS.latG;
   $('theta').value = 0; $('theta-val').textContent = '0°';
+  $('orMode').value = 'preset'; syncOrMode();
   $('orPreset').value = 'cube-on-cube';
+  $('cuPlane').value = '1 1 1'; $('gPlane').value = '1 1 1';
+  $('cuDir').value = '1 -1 0'; $('gDir').value = '1 -1 0';
   $('hkl').value = '0 0 1';
   $('tol').value = DEFAULTS.tolFrac; $('tol-val').textContent = '10%';
   $('region').value = DEFAULTS.region; $('region-val').textContent = DEFAULTS.region + ' Å';

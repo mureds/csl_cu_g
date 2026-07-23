@@ -65,6 +65,36 @@ export function frameForPlane(hkl, inPlaneDir) {
   return [x, y, n];
 }
 
+// --- Orientation relationship from parallel plane + direction pairs ----------
+// Realizes  (planeCu) ∥ (planeG)  and  [dirCu] ∥ [dirG]  for cubic crystals,
+// where a plane's normal is parallel to its Miller-index vector. Returns the
+// rotation R that maps phase-G crystal vectors into the lab (Cu) frame, so that
+// R·(planeG normal) ∥ planeCu normal and R·[dirG] ∥ [dirCu].
+export function rotationFromOR(planeCu, dirCu, planeG, dirG) {
+  const frame = (n0, d0) => {
+    const n = V.norm(n0);
+    let e1 = V.sub(d0, V.scale(n, V.dot(d0, n)));   // in-plane part of the direction
+    if (V.len(e1) < 1e-8) {                          // direction ∥ normal → pick any in-plane axis
+      const seed = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+      e1 = V.sub(seed, V.scale(n, V.dot(seed, n)));
+    }
+    e1 = V.norm(e1);
+    const e2 = V.cross(n, e1);
+    return [e1, e2, n];                              // three orthonormal basis vectors
+  };
+  const c = frame(planeCu, dirCu);                  // Cu frame (basis vectors, in lab)
+  const g = frame(planeG, dirG);                    // G frame (basis vectors, in G coords)
+  // R = MCu · MGᵀ with M = [e1 e2 n] as columns → R maps each G basis vec to the Cu one.
+  const R = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++) {
+      let s = 0;                                    // R = MCu · MGᵀ  (columns = basis vecs)
+      for (let k = 0; k < 3; k++) s += c[k][i] * g[k][j];
+      R[i][j] = s;
+    }
+  return R;
+}
+
 // --- Generate atom positions of one phase within a cubic block of half-size R ---
 // opts: { a, motif, rot (3x3 or null), origin, R (Angstrom half-extent) }
 export function generateLattice({ a, motif, rot = null, origin = [0,0,0], R }) {

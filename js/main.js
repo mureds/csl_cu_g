@@ -1,9 +1,15 @@
 // main.js — UI wiring, orientation-relationship presets, live state.
-import { MOTIFS, rotationMatrix, mulM, IDENTITY, misfitInfo, cslSeriesAboutAxis } from './csl.js';
+import { MOTIFS, rotationMatrix, mulM, IDENTITY, misfitInfo, cslSeriesAboutAxis, rotationFromOR } from './csl.js';
 import { View2D } from './view2d.js';
 import { View3D } from './view3d.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Parse a "h k l" / "h,k,l" text field into a 3-vector (falls back to `def`).
+function parseVec(id, def) {
+  const v = $(id).value.split(/[\s,]+/).map(Number).filter((x) => !Number.isNaN(x));
+  return v.length === 3 ? v : def;
+}
 
 // ---- Default material parameters (EDIT THESE with your exact values) --------
 // G-phase: Ni16Ti6Si7 (complex FCC), a = 11.2 Å, cube-on-cube with Cu.
@@ -44,12 +50,21 @@ function readState() {
   const aCu = parseFloat($('aCu').value) || DEFAULTS.aCu;
   const aG  = parseFloat($('aG').value)  || DEFAULTS.aG;
   const theta = parseFloat($('theta').value) || 0;
-  const preset = $('orPreset').value;
   const hkl = $('hkl').value.split(/[\s,]+/).map(Number);
   const normal = hkl.length === 3 ? hkl : DEFAULTS.hkl;
-  // θ = twist about the interface normal, applied on top of the preset OR.
-  const presetRot = OR_PRESETS[preset] || IDENTITY;
-  const rotB = mulM(rotationMatrix(normal, theta), presetRot);
+  // Base OR: either a named preset, or computed from parallel plane/direction
+  // index pairs  (hkl)_Cu ∥ (h'k'l')_G  and  [uvw]_Cu ∥ [u'v'w']_G.
+  let baseRot;
+  if ($('orMode').value === 'index') {
+    baseRot = rotationFromOR(
+      parseVec('cuPlane', [1, 1, 1]), parseVec('cuDir', [1, -1, 0]),
+      parseVec('gPlane',  [1, 1, 1]), parseVec('gDir',  [1, -1, 0]),
+    );
+  } else {
+    baseRot = OR_PRESETS[$('orPreset').value] || IDENTITY;
+  }
+  // θ = extra twist about the interface normal, applied on top of the base OR.
+  const rotB = mulM(rotationMatrix(normal, theta), baseRot);
   const tolFrac = parseFloat($('tol').value);
   const region = parseFloat($('region').value);
   return {
@@ -85,7 +100,17 @@ function refresh() {
 
 // ---- wire controls ----
 function bind(id, ev = 'input') { $(id).addEventListener(ev, refresh); }
-['aCu','aG','theta','hkl','tol','region','latCu','latG','orPreset'].forEach(id => bind(id));
+['aCu','aG','theta','hkl','tol','region','latCu','latG','orPreset',
+ 'orMode','cuPlane','gPlane','cuDir','gDir'].forEach(id => bind(id));
+
+// Show preset vs. index inputs depending on the chosen OR mode.
+function syncOrMode() {
+  const idx = $('orMode').value === 'index';
+  $('or-index-group').style.display = idx ? '' : 'none';
+  $('or-preset-group').style.display = idx ? 'none' : '';
+}
+$('orMode').addEventListener('change', syncOrMode);
+syncOrMode();
 
 $('theta').addEventListener('input', () => { $('theta-val').textContent = $('theta').value + '°'; });
 $('tol').addEventListener('input',   () => { $('tol-val').textContent = (parseFloat($('tol').value)*100).toFixed(0) + '%'; });
@@ -99,7 +124,10 @@ $('reset').addEventListener('click', () => {
   $('aCu').value = DEFAULTS.aCu; $('aG').value = DEFAULTS.aG;
   $('latCu').value = DEFAULTS.latCu; $('latG').value = DEFAULTS.latG;
   $('theta').value = 0; $('theta-val').textContent = '0°';
+  $('orMode').value = 'preset'; syncOrMode();
   $('orPreset').value = 'cube-on-cube';
+  $('cuPlane').value = '1 1 1'; $('gPlane').value = '1 1 1';
+  $('cuDir').value = '1 -1 0'; $('gDir').value = '1 -1 0';
   $('hkl').value = '0 0 1';
   $('tol').value = DEFAULTS.tolFrac; $('tol-val').textContent = '10%';
   $('region').value = DEFAULTS.region; $('region-val').textContent = DEFAULTS.region + ' Å';
