@@ -51,15 +51,20 @@ function readState() {
   const aG  = parseFloat($('aG').value)  || DEFAULTS.aG;
   const theta = parseFloat($('theta').value) || 0;
   const hkl = $('hkl').value.split(/[\s,]+/).map(Number);
-  const normal = hkl.length === 3 ? hkl : DEFAULTS.hkl;
+  let normal = hkl.length === 3 ? hkl : DEFAULTS.hkl;
   // Base OR: either a named preset, or computed from parallel plane/direction
   // index pairs  (hkl)_Cu ∥ (h'k'l')_G  and  [uvw]_Cu ∥ [u'v'w']_G.
   let baseRot;
   if ($('orMode').value === 'index') {
-    baseRot = rotationFromOR(
-      parseVec('cuPlane', [1, 1, 1]), parseVec('cuDir', [1, -1, 0]),
-      parseVec('gPlane',  [1, 1, 1]), parseVec('gDir',  [1, -1, 0]),
-    );
+    const cuP = parseVec('cuPlane', [1, 1, 1]), cuD = parseVec('cuDir', [1, -1, 0]);
+    const gP  = parseVec('gPlane',  [1, 1, 1]), gD  = parseVec('gDir',  [1, -1, 0]);
+    baseRot = rotationFromOR(cuP, cuD, gP, gD);
+    // Index mode: the interface IS the (hkl)_Cu plane. Cu is the (unrotated)
+    // lab frame, so its plane normal in lab coords is simply cuP — use it as
+    // the interface normal so editing Cu (h k l) visibly re-cuts the bicrystal.
+    // (rotationFromOR already glues G with (h'k'l')_G ∥ that plane.)
+    if (cuP.some((x) => x !== 0)) normal = cuP;
+    $('hkl').value = normal.join(' ');    // mirror into the (disabled) field
   } else {
     baseRot = OR_PRESETS[$('orPreset').value] || IDENTITY;
   }
@@ -71,7 +76,7 @@ function readState() {
     aCu, aG,
     motifCu: MOTIFS[$('latCu').value], motifG: MOTIFS[$('latG').value],
     rotA: null, rotB,   // Cu is never rotated → null enables the fast path
-    hkl: hkl.length === 3 ? hkl : DEFAULTS.hkl,
+    hkl: normal,
     inPlane: DEFAULTS.inPlane,
     tol: tolFrac * aCu,
     region,
@@ -113,10 +118,14 @@ function bind(id, ev = 'input') { $(id).addEventListener(ev, scheduleRefresh); }
  'orMode','cuPlane','gPlane','cuDir','gDir'].forEach(id => bind(id));
 
 // Show preset vs. index inputs depending on the chosen OR mode.
+// In index mode the interface normal is driven by Cu (h k l), so the manual
+// 계면 법선 field is disabled (it just mirrors cuPlane).
 function syncOrMode() {
   const idx = $('orMode').value === 'index';
   $('or-index-group').style.display = idx ? '' : 'none';
   $('or-preset-group').style.display = idx ? 'none' : '';
+  $('hkl').disabled = idx;
+  $('hkl').title = idx ? '지수 모드: Cu (h k l)이 계면 법선으로 사용됩니다' : '';
 }
 $('orMode').addEventListener('change', syncOrMode);
 syncOrMode();
